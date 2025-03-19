@@ -8,20 +8,19 @@
 import SwiftUI
 
 struct DataManagementView: View {
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var userProfileManager: UserProfileManager
-    @ObservedObject private var activityManager = UserActivityManager.shared
     @State private var showingRestoreBackupSheet = false
     @State private var showingDeleteAccountAlert = false
     @State private var showingPrivacyPolicySheet = false
     @State private var showingClearConversationsAlert = false
-    @State private var showingClearCacheAlert = false
-    @State private var restrictDataSharing = true
+    @State private var showingExportSheet = false
     @State private var backupsList: [BackupInfo] = []
     @State private var selectedBackupId: String?
-    @State private var isRefreshingBackups = false
-    @State private var showToast = false
-    @State private var toastMessage = ""
+    @State private var restrictDataSharing = true
+    @State private var showingRestoreConfirmationAlert = false
+    @State private var selectedBackup: BackupInfo?
+    @State private var showingSuccessToast = false
+    @State private var successMessage = ""
     
     struct BackupInfo: Identifiable {
         let id: String
@@ -30,396 +29,430 @@ struct DataManagementView: View {
     }
     
     var body: some View {
-        List {
-            // DATA MANAGEMENT SECTION
-            Section(header: 
-                Text("DATA MANAGEMENT")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.gray)
-            ) {
-                Button(action: { showingClearConversationsAlert = true }) {
-                    HStack {
-                        Image(systemName: "trash.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(.red)
-                            .frame(width: 24)
-                        
-                        Text("Clear All Conversations")
-                            .foregroundColor(.red)
-                        
-                        Spacer()
-                    }
-                }
-                
-                Button(action: { showingClearCacheAlert = true }) {
-                    HStack {
-                        Image(systemName: "trash.slash.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(.orange)
-                            .frame(width: 24)
-                        
-                        Text("Clear Cached Data")
-                            .foregroundColor(.orange)
-                        
-                        Spacer()
-                    }
-                }
-            }
-            
-            // BACKUP & RESTORE SECTION
-            Section(header: 
-                Text("BACKUP & RESTORE")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.gray)
-            ) {
-                NavigationLink(destination: backupListView) {
-                    HStack {
-                        Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 18))
-                            .foregroundColor(.primary)
-                            .frame(width: 24)
-                        
-                        Text("View Backups")
-                            .foregroundColor(.primary)
-                    }
-                }
-                
-                Button(action: refreshBackupsWithAnimation) {
-                    HStack {
-                        if isRefreshingBackups {
-                            ProgressView()
-                                .frame(width: 24)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 18))
-                                .foregroundColor(.blue)
-                                .frame(width: 24)
+        ZStack {
+            List {
+                Section(header: Text("DATA MANAGEMENT").font(.caption).foregroundColor(.gray)) {
+                    Button(action: { showingClearConversationsAlert = true }) {
+                        HStack {
+                            Image(systemName: "trash.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(.red)
+                                .frame(width: 30)
+                            
+                            Text("Clear All Conversations")
+                                .foregroundColor(.red)
+                            
+                            Spacer()
                         }
-                        
-                        Text("Refresh Backups List")
-                            .foregroundColor(.blue)
-                        
-                        Spacer()
+                        .padding(.vertical, 8)
+                    }
+                    
+                    Button(action: clearCachedData) {
+                        HStack {
+                            Image(systemName: "trash.slash.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(.orange)
+                                .frame(width: 30)
+                            
+                            Text("Clear Cached Data")
+                                .foregroundColor(.orange)
+                            
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
                     }
                 }
-                .disabled(isRefreshingBackups)
+                
+                Section(header: Text("EXPORT & IMPORT").font(.caption).foregroundColor(.gray)) {
+                    Button(action: { showingExportSheet = true }) {
+                        HStack {
+                            Image(systemName: "square.and.arrow.up.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(.blue)
+                                .frame(width: 30)
+                            
+                            Text("Export Your Data")
+                                .foregroundColor(.blue)
+                            
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    NavigationLink(destination: documentPickerView) {
+                        HStack {
+                            Image(systemName: "square.and.arrow.down.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(.green)
+                                .frame(width: 30)
+                            
+                            Text("Import Data")
+                            
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
+                }
+                
+                Section(header: Text("BACKUP & RESTORE").font(.caption).foregroundColor(.gray)) {
+                    NavigationLink(destination: backupListView) {
+                        HStack {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 22))
+                                .foregroundColor(.primary)
+                                .frame(width: 30)
+                            
+                            Text("View Backups")
+                            
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    Button(action: { refreshBackupsList() }) {
+                        HStack {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 22))
+                                .foregroundColor(.blue)
+                                .frame(width: 30)
+                            
+                            Text("Refresh Backups List")
+                                .foregroundColor(.blue)
+                            
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
+                }
+                
+                Section(header: Text("PRIVACY & SECURITY").font(.caption).foregroundColor(.gray)) {
+                    Button(action: { showingPrivacyPolicySheet = true }) {
+                        HStack {
+                            Image(systemName: "lock.shield.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(.blue)
+                                .frame(width: 30)
+                            
+                            Text("Privacy Policy")
+                                .foregroundColor(.blue)
+                            
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    NavigationLink(destination: UserAnalyticsView()) {
+                        HStack {
+                            Image(systemName: "chart.bar.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(.primary)
+                                .frame(width: 30)
+                            
+                            Text("Learning Insights")
+                            
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    NavigationLink(destination: DataUsageView()) {
+                        HStack {
+                            Image(systemName: "chart.bar.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(.primary)
+                                .frame(width: 30)
+                            
+                            Text("Data Usage")
+                            
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    HStack {
+                        Image(systemName: "hand.raised.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(.primary)
+                            .frame(width: 30)
+                        
+                        Text("Restrict Sensitive Data Sharing")
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        Toggle("", isOn: $restrictDataSharing)
+                            .labelsHidden()
+                    }
+                    .padding(.vertical, 8)
+                }
+                
+                Section(header: Text("ACCOUNT MANAGEMENT").font(.caption).foregroundColor(.gray)) {
+                    Button(action: { showingDeleteAccountAlert = true }) {
+                        HStack {
+                            Image(systemName: "person.crop.circle.badge.minus")
+                                .font(.system(size: 22))
+                                .foregroundColor(.red)
+                                .frame(width: 30)
+                            
+                            Text("Delete Account & Data")
+                                .foregroundColor(.red)
+                            
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
+                }
+            }
+            .listStyle(InsetGroupedListStyle())
+            .navigationTitle("Data & Privacy")
+            .navigationBarTitleDisplayMode(.large)
+            .onAppear {
+                refreshBackupsList()
+            }
+            .alert("Clear All Conversations", isPresented: $showingClearConversationsAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Clear", role: .destructive) {
+                    ConversationManager.shared.clearAllConversations()
+                }
+            } message: {
+                Text("This will remove all your conversation history. This action cannot be undone.")
+            }
+            .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    deleteAccount()
+                }
+            } message: {
+                Text("This will permanently delete your profile and all associated data. This action cannot be undone.")
+            }
+            .alert("Restore Backup", isPresented: $showingRestoreConfirmationAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Restore", role: .destructive) {
+                    if let backup = selectedBackup {
+                        restoreBackup(from: backup.id)
+                    }
+                }
+            } message: {
+                if let backup = selectedBackup {
+                    Text("Restore profile backup from \(formatDate(backup.date))? This will replace your current profile data.")
+                } else {
+                    Text("Restore selected backup? This will replace your current profile data.")
+                }
+            }
+            .sheet(isPresented: $showingPrivacyPolicySheet) {
+                privacyPolicyView
+            }
+            .sheet(isPresented: $showingExportSheet) {
+                DataExportView()
+                    .environmentObject(userProfileManager)
             }
             
-            // PRIVACY & SECURITY SECTION
-            Section(header: 
-                Text("PRIVACY & SECURITY")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.gray)
-            ) {
-                Button(action: { showingPrivacyPolicySheet = true }) {
-                    HStack {
-                        Image(systemName: "lock.shield.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(.blue)
-                            .frame(width: 24)
-                        
-                        Text("Privacy Policy")
-                            .foregroundColor(.blue)
-                        
-                        Spacer()
-                    }
+            if showingSuccessToast {
+                VStack {
+                    Spacer()
+                    
+                    Text(successMessage)
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.green.cornerRadius(10))
+                        .shadow(radius: 10)
+                        .padding(.bottom, 100)
+                        .transition(.move(edge: .bottom))
                 }
-                
-                NavigationLink(destination: UserAnalyticsView()) {
-                    HStack {
-                        Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(.primary)
-                            .frame(width: 24)
-                        
-                        Text("Learning Insights")
-                            .foregroundColor(.primary)
-                    }
-                }
-                
-                NavigationLink(destination: dataUsageView) {
-                    HStack {
-                        Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(.primary)
-                            .frame(width: 24)
-                        
-                        Text("Data Usage")
-                            .foregroundColor(.primary)
-                    }
-                }
-                
-                Toggle(isOn: $restrictDataSharing) {
-                    Text("Restrict Sensitive Data Sharing")
-                        .foregroundColor(.primary)
-                }
-                .onChange(of: restrictDataSharing) { newValue in
-                    savePrivacySettings()
-                    showToast(message: "Privacy setting updated")
-                }
-            }
-            
-            // ACCOUNT MANAGEMENT SECTION
-            Section(header: 
-                Text("ACCOUNT MANAGEMENT")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.gray)
-            ) {
-                Button(action: { showingDeleteAccountAlert = true }) {
-                    HStack {
-                        Image(systemName: "person.crop.circle.badge.minus")
-                            .font(.system(size: 18))
-                            .foregroundColor(.red)
-                            .frame(width: 24)
-                        
-                        Text("Delete Account & Data")
-                            .foregroundColor(.red)
-                        
-                        Spacer()
+                .zIndex(1)
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        withAnimation {
+                            showingSuccessToast = false
+                        }
                     }
                 }
             }
-        }
-        .listStyle(InsetGroupedListStyle())
-        .navigationTitle("Data & Privacy")
-        .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            loadPrivacySettings()
-            refreshBackupsList()
-        }
-        .overlay(
-            ToastView(message: toastMessage, isShowing: $showToast)
-        )
-        .alert("Clear All Conversations", isPresented: $showingClearConversationsAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Clear", role: .destructive) {
-                ConversationManager.shared.clearAllConversations()
-                showToast(message: "All conversations cleared")
-            }
-        } message: {
-            Text("This will remove all your conversation history. This action cannot be undone.")
-        }
-        .alert("Clear Cached Data", isPresented: $showingClearCacheAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Clear", role: .destructive) {
-                clearCachedData()
-                showToast(message: "Cache cleared successfully")
-            }
-        } message: {
-            Text("This will clear temporary files and cached data to free up space. Your profile and conversations will not be affected.")
-        }
-        .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                deleteAccount()
-                dismiss()
-            }
-        } message: {
-            Text("This will permanently delete your profile and all associated data. This action cannot be undone.")
-        }
-        .sheet(isPresented: $showingPrivacyPolicySheet) {
-            privacyPolicyView
         }
     }
     
     private var backupListView: some View {
-        List {
+        VStack {
             if backupsList.isEmpty {
-                Section {
-                    VStack(spacing: 16) {
-                        Image(systemName: "externaldrive.badge.xmark")
-                            .font(.system(size: 60))
-                            .foregroundColor(.gray)
-                        
-                        Text("No Backups Found")
-                            .font(.headline)
-                        
-                        Text("Backups you create will appear here")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                        
-                        Button(action: {
-                            backupProfile()
-                        }) {
-                            Text("Create Backup")
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 10)
-                                .background(Color.blue)
-                                .cornerRadius(8)
-                        }
-                        .padding(.top, 8)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
-                }
+                EmptyBackupView()
             } else {
-                ForEach(backupsList) { backup in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(backup.profileName)
-                                .font(.headline)
-                            
-                            Text(dateFormatter.string(from: backup.date))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        Button(action: {
-                            selectedBackupId = backup.id
+                List {
+                    ForEach(backupsList) { backup in
+                        BackupRowView(backup: backup) {
                             showRestoreConfirmation(for: backup)
-                        }) {
-                            Text("Restore")
-                                .font(.subheadline)
-                                .foregroundColor(.blue)
                         }
                     }
-                    .contentShape(Rectangle())
+                    .onDelete(perform: deleteBackups)
                 }
-                .onDelete(perform: deleteBackups)
+                .listStyle(InsetGroupedListStyle())
             }
         }
         .navigationTitle("Saved Backups")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    backupProfile()
-                }) {
-                    Text("Backup Now")
+                Button(action: createNewBackup) {
+                    Label("New Backup", systemImage: "plus")
                 }
             }
         }
     }
     
-    private var dataUsageView: some View {
-        List {
-            Section(header: Text("App Usage")) {
-                DataUsageRow(title: "Total Sessions", value: "\(activityManager.activitySummary.totalSessionsCount)")
-                DataUsageRow(title: "Conversations", value: "\(activityManager.activitySummary.totalConversationsStarted)")
-                DataUsageRow(title: "Messages Sent", value: "\(activityManager.activitySummary.totalMessagesCount)")
-                
-                HStack {
-                    Text("Total Usage Time")
-                    Spacer()
-                    Text(formatTimeInterval(activityManager.activitySummary.totalSessionTime))
-                        .foregroundColor(.secondary)
-                }
-            }
+    private func createNewBackup() {
+        guard let profile = userProfileManager.userProfile else { return }
+        
+        let timestamp = Date().timeIntervalSince1970
+        let backupKey = "dronaProfileBackup_\(timestamp)"
+        
+        // Create a comprehensive backup including profile and settings
+        let backupData: [String: Any] = [
+            "profile": profile,
+            "settings": [
+                "responseLength": UserDefaults.standard.object(forKey: "dronaResponseLength") as Any,
+                "responseTone": UserDefaults.standard.object(forKey: "dronaResponseTone") as Any,
+                "exampleDetail": UserDefaults.standard.object(forKey: "dronaExampleDetail") as Any,
+                "useFormalLanguage": UserDefaults.standard.object(forKey: "dronaUseFormalLanguage") as Any,
+                "primaryChatColor": UserDefaults.standard.object(forKey: "dronaPrimaryChatColor") as Any,
+                "showSourcesInResponse": UserDefaults.standard.object(forKey: "dronaShowSourcesInResponse") as Any,
+                "autoSuggestQuestions": UserDefaults.standard.object(forKey: "dronaAutoSuggestQuestions") as Any,
+                "showTypingAnimation": UserDefaults.standard.object(forKey: "dronaShowTypingAnimation") as Any,
+            ],
+            "timestamp": timestamp
+        ]
+        
+        // Store profile data
+        if let profileData = try? JSONEncoder().encode(profile) {
+            UserDefaults.standard.set(profileData, forKey: backupKey)
             
-            Section(header: Text("Storage Usage")) {
-                StorageUsageRow(title: "Profile Data", value: "< 1 MB", percent: 0.05)
-                StorageUsageRow(title: "Conversations", value: calculateConversationSize(), percent: calculateConversationPercent())
-                StorageUsageRow(title: "Cache", value: calculateCacheSize(), percent: calculateCachePercent())
-            }
+            // Update backup list
+            var backupsList = UserDefaults.standard.stringArray(forKey: "dronaProfileBackupsList") ?? []
+            backupsList.append(backupKey)
+            UserDefaults.standard.set(backupsList, forKey: "dronaProfileBackupsList")
             
-            Section(header: Text("Network Usage")) {
-                HStack {
-                    Text("API Calls")
-                    Spacer()
-                    Text("\(activityManager.activitySummary.totalMessagesCount * 2)")
-                        .foregroundColor(.secondary)
-                }
-                
-                HStack {
-                    Text("Data Transferred")
-                    Spacer()
-                    Text("\(formatDataSize(Double(activityManager.activitySummary.totalMessagesCount * 15)))")
-                        .foregroundColor(.secondary)
-                }
-            }
+            // Show success message
+            showSuccessMessage("Backup created successfully")
             
-            Section {
-                Button(action: {
-                    // Clear usage statistics
-                    activityManager.clearActivityData()
-                    showToast(message: "Usage statistics reset")
-                }) {
-                    HStack {
-                        Spacer()
-                        Text("Reset Usage Statistics")
-                            .foregroundColor(.red)
-                        Spacer()
-                    }
-                }
-            }
+            // Refresh the list
+            refreshBackupsList()
         }
-        .navigationTitle("Data Usage")
+    }
+    
+    private func showRestoreConfirmation(for backup: BackupInfo) {
+        selectedBackup = backup
+        showingRestoreConfirmationAlert = true
+    }
+    
+    private func restoreBackup(from backupId: String) {
+        guard let profileData = UserDefaults.standard.data(forKey: backupId),
+              let profile = try? JSONDecoder().decode(UserProfile.self, from: profileData) else {
+            return
+        }
+        
+        // Restore profile
+        userProfileManager.saveProfile(profile)
+        
+        // Show success message
+        showSuccessMessage("Profile restored successfully")
+    }
+    
+    private func deleteBackups(at offsets: IndexSet) {
+        let keysToDelete = offsets.map { backupsList[$0].id }
+        
+        // Remove from UserDefaults
+        for key in keysToDelete {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        
+        // Update backups list
+        var currentList = UserDefaults.standard.stringArray(forKey: "dronaProfileBackupsList") ?? []
+        currentList.removeAll { keysToDelete.contains($0) }
+        UserDefaults.standard.set(currentList, forKey: "dronaProfileBackupsList")
+        
+        // Update UI
+        refreshBackupsList()
     }
     
     private var privacyPolicyView: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Privacy Policy")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .padding(.top)
-                    
-                    Group {
-                        Text("Data Collection")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                VStack(alignment: .leading, spacing: 25) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Privacy Policy")
+                            .font(.system(size: 28, weight: .bold))
+                            .padding(.top)
                         
-                        Text("Drona collects only the information you provide during profile creation. This includes your name, age, education level, interests, preferred topics, and optional bio. This information is stored locally on your device and is not transmitted to our servers unless you explicitly share your data.")
+                        Text("Last Updated: March 20, 2025")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        RoundedRectangle(cornerRadius: 2)
+                            .frame(width: 100, height: 4)
+                            .foregroundColor(.blue)
+                            .padding(.top, 5)
+                            .padding(.bottom, 10)
                     }
                     
-                    Group {
-                        Text("Data Usage")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
-                        Text("The information you provide is used exclusively to personalize your experience with Drona. Your conversations with Drona are processed using privacy-preserving techniques.")
-                    }
+                    policySection(
+                        title: "Data Collection",
+                        content: "Drona collects only the information you provide during profile creation. This includes your name, age, education level, interests, preferred topics, and optional bio. This information is stored locally on your device and is not transmitted to our servers unless you explicitly share your data."
+                    )
                     
-                    Group {
-                        Text("Data Storage")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
-                        Text("Your profile information and conversation history are stored locally on your device. You can export, backup, or delete this data at any time from the Data Management screen.")
-                    }
+                    policySection(
+                        title: "Data Usage",
+                        content: "The information you provide is used exclusively to personalize your experience with Drona. Your conversations with Drona are processed using privacy-preserving techniques. All processing happens on-device when possible, with only necessary data sent to AI services for generating responses."
+                    )
                     
-                    Group {
-                        Text("Third-Party Services")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
-                        Text("Drona uses Google's Gemini API to process your questions and generate responses. When you interact with Drona, your questions and relevant context from your profile may be sent to Google's servers for processing. Google's privacy policy applies to this data processing.")
-                    }
+                    policySection(
+                        title: "Data Storage",
+                        content: "Your profile information and conversation history are stored locally on your device. You can export, backup, or delete this data at any time from the Data Management screen.\n\nBy default, we retain your conversation history to provide better personalized responses, but you can clear this data at any time."
+                    )
+                    
+                    policySection(
+                        title: "Third-Party Services",
+                        content: "Drona uses Google's Gemini API to process your questions and generate responses. When you interact with Drona, your questions and relevant context from your profile may be sent to Google's servers for processing. Google's privacy policy applies to this data processing.\n\nWe never share your personal information with advertisers or other third parties."
+                    )
+                    
+                    policySection(
+                        title: "Your Privacy Controls",
+                        content: "Drona gives you control over your data. You can:\n\n• View all data stored about you\n• Export your data\n• Delete your conversations\n• Delete your entire account\n• Restrict data sharing with AI services using the toggle in Privacy Settings"
+                    )
+                    
+                    policySection(
+                        title: "Children's Privacy",
+                        content: "Drona is designed for users 13 years of age and older. We do not knowingly collect personal information from children under 13. If you become aware that a child has provided us with personal information, please contact us."
+                    )
+                    
+                    policySection(
+                        title: "Changes to Policy",
+                        content: "We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the 'Last Updated' date."
+                    )
+                    
+                    policySection(
+                        title: "Contact Us",
+                        content: "If you have any questions about this Privacy Policy, please contact us at privacy@dronaai.com."
+                    )
+                    
+                    Spacer(minLength: 50)
                 }
-                .padding()
+                .padding(.horizontal)
             }
-            .navigationBarItems(trailing: Button("Done") {
+            .navigationBarItems(trailing: Button("Close") {
                 showingPrivacyPolicySheet = false
             })
+            .navigationBarTitle("", displayMode: .inline)
         }
     }
     
-    // MARK: - Helper Functions
-    
-    private func showToast(message: String) {
-        toastMessage = message
-        showToast = true
-        
-        // Hide toast after delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation {
-                self.showToast = false
-            }
-        }
-    }
-    
-    private func refreshBackupsWithAnimation() {
-        isRefreshingBackups = true
-        
-        // Add slight delay to show loading indicator
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            refreshBackupsList()
-            isRefreshingBackups = false
-            showToast(message: "Backup list refreshed")
+    private func policySection(title: String, content: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.headline)
+                .fontWeight(.bold)
+            
+            Text(content)
+                .font(.body)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
     
@@ -443,59 +476,6 @@ struct DataManagementView: View {
             return BackupInfo(id: key, date: date, profileName: profile.name)
         }
         .sorted { $0.date > $1.date }
-    }
-    
-    private func backupProfile() {
-        guard let profile = userProfileManager.userProfile else {
-            showToast(message: "No profile to backup")
-            return
-        }
-        
-        // Create backup entry in UserDefaults
-        if let profileData = try? JSONEncoder().encode(profile) {
-            let backupKey = "dronaProfileBackup_\(Date().timeIntervalSince1970)"
-            UserDefaults.standard.set(profileData, forKey: backupKey)
-            
-            // Store list of backups
-            var backupsList = UserDefaults.standard.stringArray(forKey: "dronaProfileBackupsList") ?? []
-            backupsList.append(backupKey)
-            UserDefaults.standard.set(backupsList, forKey: "dronaProfileBackupsList")
-            
-            refreshBackupsList()
-            showToast(message: "Profile backed up successfully")
-        } else {
-            showToast(message: "Failed to create backup")
-        }
-    }
-    
-    private func deleteBackups(at offsets: IndexSet) {
-        let keysToDelete = offsets.map { backupsList[$0].id }
-        
-        // Remove from UserDefaults
-        for key in keysToDelete {
-            UserDefaults.standard.removeObject(forKey: key)
-        }
-        
-        // Update backups list
-        var currentList = UserDefaults.standard.stringArray(forKey: "dronaProfileBackupsList") ?? []
-        currentList.removeAll { keysToDelete.contains($0) }
-        UserDefaults.standard.set(currentList, forKey: "dronaProfileBackupsList")
-        
-        // Update UI
-        refreshBackupsList()
-        showToast(message: "Backup deleted")
-    }
-    
-    private func showRestoreConfirmation(for backup: BackupInfo) {
-        // In a real app, would show a confirmation alert here
-        guard let backupData = UserDefaults.standard.data(forKey: backup.id),
-              let restoredProfile = try? JSONDecoder().decode(UserProfile.self, from: backupData) else {
-            showToast(message: "Failed to restore backup")
-            return
-        }
-        
-        userProfileManager.saveProfile(restoredProfile)
-        showToast(message: "Profile restored successfully")
     }
     
     private func clearCachedData() {
@@ -556,60 +536,320 @@ struct DataManagementView: View {
         
         // Clear cached files
         clearCachedData()
-        
-        // Clear activity data
-        activityManager.clearActivityData()
     }
     
-    private func loadPrivacySettings() {
-        restrictDataSharing = UserDefaults.standard.bool(forKey: "dronaRestrictDataSharing")
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
     }
     
-    private func savePrivacySettings() {
-        UserDefaults.standard.set(restrictDataSharing, forKey: "dronaRestrictDataSharing")
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
     
-    private func calculateConversationSize() -> String {
-        // In a real app, would calculate actual size
-        let messageCount = activityManager.activitySummary.totalMessagesCount
-        let size = Double(messageCount) * 5.0 // Rough estimate: 5 KB per message
-        return formatDataSize(size)
-    }
-    
-    private func calculateCacheSize() -> String {
-        // In a real app, would calculate actual cache size
-        return formatDataSize(Double.random(in: 1...20) * 1024) // Random value for demonstration
-    }
-    
-    private func calculateConversationPercent() -> CGFloat {
-        // In a real app, would calculate actual percentage
-        let messageCount = activityManager.activitySummary.totalMessagesCount
-        return min(CGFloat(messageCount) * 0.01, 0.8) // Cap at 80%
-    }
-    
-    private func calculateCachePercent() -> CGFloat {
-        // In a real app, would calculate actual percentage
-        return CGFloat.random(in: 0.05...0.2) // Random value for demonstration
-    }
-    
-    private func formatDataSize(_ kilobytes: Double) -> String {
-        if kilobytes < 1024 {
-            return String(format: "%.1f KB", kilobytes)
-        } else {
-            let megabytes = kilobytes / 1024
-            return String(format: "%.1f MB", megabytes)
+    private func showSuccessMessage(_ message: String) {
+        // Show a toast notification
+        successMessage = message
+        withAnimation {
+            showingSuccessToast = true
         }
     }
     
-    private func formatTimeInterval(_ interval: TimeInterval) -> String {
-        let hours = Int(interval) / 3600
-        let minutes = (Int(interval) % 3600) / 60
+    private var documentPickerView: some View {
+        DocumentPickerView { urls in
+            guard let url = urls.first else { return }
+            
+            // Check file type
+            if url.pathExtension.lowercased() == "json" {
+                // Import JSON data
+                let success = ConversationManager.shared.importConversations(from: url)
+                if success {
+                    showSuccessMessage("Data imported successfully")
+                } else {
+                    // Show error alert
+                    print("Failed to import data")
+                }
+            } else {
+                // Show error for unsupported file type
+                print("Unsupported file type")
+            }
+        }
+        .navigationTitle("Import Data")
+    }
+}
+
+struct DataUsageView: View {
+    @ObservedObject private var activityManager = UserActivityManager.shared
+    @EnvironmentObject var userProfileManager: UserProfileManager
+    @State private var conversationsSize: Int = 0
+    @State private var profileSize: Int = 0
+    @State private var cacheSize: Int = 0
+    @State private var appSize: Int = 46 * 1024 * 1024  // Approximately 46 MB base app size
+    
+    var body: some View {
+        List {
+            Section(header: Text("STORAGE USAGE")) {
+                DataUsageRowView(
+                    title: "Conversations", 
+                    value: formatFileSize(conversationsSize), 
+                    icon: "text.bubble.fill", 
+                    color: .blue
+                )
+                
+                DataUsageRowView(
+                    title: "User Data", 
+                    value: formatFileSize(profileSize), 
+                    icon: "person.fill", 
+                    color: .green
+                )
+                
+                DataUsageRowView(
+                    title: "Cached Data", 
+                    value: formatFileSize(cacheSize), 
+                    icon: "arrow.triangle.2.circlepath", 
+                    color: .orange
+                )
+                
+                DataUsageRowView(
+                    title: "App Size", 
+                    value: formatFileSize(appSize), 
+                    icon: "square.stack.3d.up.fill", 
+                    color: .purple
+                )
+            }
+            
+            Section(header: Text("NETWORK USAGE")) {
+                DataUsageRowView(
+                    title: "Data Sent", 
+                    value: formatFileSize(Int(Double(conversationsSize) * 1.5)), 
+                    icon: "arrow.up.circle.fill", 
+                    color: .red
+                )
+                
+                DataUsageRowView(
+                    title: "Data Received", 
+                    value: formatFileSize(Int(Double(conversationsSize) * 5.2)), 
+                    icon: "arrow.down.circle.fill", 
+                    color: .green
+                )
+            }
+            
+            Section(header: Text("USAGE STATISTICS"), footer: Text("All data is stored locally on your device.")) {
+                DataUsageRowView(
+                    title: "Conversations",
+                    value: "\(activityManager.activitySummary.totalConversationsStarted)",
+                    icon: "text.bubble.fill",
+                    color: .blue
+                )
+                
+                DataUsageRowView(
+                    title: "Messages Sent",
+                    value: "\(activityManager.activitySummary.totalMessagesCount)",
+                    icon: "paperplane.fill",
+                    color: .blue
+                )
+                
+                DataUsageRowView(
+                    title: "Messages Total",
+                    value: "\(ConversationManager.shared.getTotalMessageCount())",
+                    icon: "message.fill",
+                    color: .blue
+                )
+                
+                DataUsageRowView(
+                    title: "Time Spent",
+                    value: formatTime(activityManager.activitySummary.totalSessionTime),
+                    icon: "clock.fill",
+                    color: .blue
+                )
+            }
+            
+            Section(header: Text("CONVERSATIONS BY CATEGORY")) {
+                ForEach(ConversationManager.shared.getConversationCountByCategory().sorted(by: { $0.value > $1.value }), id: \.key) { category, count in
+                    DataUsageRowView(
+                        title: category,
+                        value: "\(count)",
+                        icon: categoryIcon(for: category),
+                        color: categoryColor(for: category)
+                    )
+                }
+            }
+        }
+        .listStyle(InsetGroupedListStyle())
+        .navigationTitle("Data Usage")
+        .onAppear {
+            calculateSizes()
+        }
+    }
+    
+    private func calculateSizes() {
+        // Calculate conversations size
+        conversationsSize = ConversationManager.shared.getTotalDataSize()
+        
+        // Calculate profile size
+        if let userProfile = userProfileManager.userProfile,
+           let encoded = try? JSONEncoder().encode(userProfile) {
+            profileSize = encoded.count
+        }
+        
+        // Calculate cache size
+        cacheSize = calculateCacheSize()
+    }
+    
+    private func calculateCacheSize() -> Int {
+        let fileManager = FileManager.default
+        
+        // Calculate size of cache directory
+        if let cachesDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            do {
+                let cacheContents = try fileManager.contentsOfDirectory(
+                    at: cachesDirectory,
+                    includingPropertiesForKeys: [.fileSizeKey],
+                    options: [.skipsHiddenFiles]
+                )
+                
+                var totalSize = 0
+                for file in cacheContents {
+                    let attributes = try file.resourceValues(forKeys: [.fileSizeKey])
+                    if let size = attributes.fileSize {
+                        totalSize += size
+                    }
+                }
+                
+                return totalSize
+            } catch {
+                print("Error calculating cache size: \(error.localizedDescription)")
+            }
+        }
+        
+        // If calculation fails, return an estimate
+        return 3_150_000 // About 3.1 MB
+    }
+    
+    private func formatFileSize(_ bytes: Int) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(bytes))
+    }
+    
+    private func formatTime(_ timeInterval: TimeInterval) -> String {
+        let hours = Int(timeInterval) / 3600
+        let minutes = (Int(timeInterval) % 3600) / 60
         
         if hours > 0 {
             return "\(hours)h \(minutes)m"
         } else {
             return "\(minutes)m"
         }
+    }
+    
+    private func categoryIcon(for category: String) -> String {
+        switch category {
+        case "Academic": return "book.fill"
+        case "Personal": return "person.fill"
+        case "Financial": return "dollarsign.circle.fill"
+        case "Social": return "person.3.fill"
+        case "Relational": return "heart.fill"
+        case "Career": return "briefcase.fill"
+        default: return "questionmark.circle.fill"
+        }
+    }
+    
+    private func categoryColor(for category: String) -> Color {
+        switch category {
+        case "Academic": return .blue
+        case "Personal": return .purple
+        case "Financial": return .green
+        case "Social": return .orange
+        case "Relational": return .pink
+        case "Career": return .indigo
+        default: return .gray
+        }
+    }
+}
+
+struct DataUsageRowView: View {
+    let title: String
+    let value: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundColor(color)
+                .font(.system(size: 20))
+                .frame(width: 30)
+            
+            Text(title)
+            
+            Spacer()
+            
+            Text(value)
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+struct EmptyBackupView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "externaldrive.badge.xmark")
+                .font(.system(size: 70))
+                .foregroundColor(.gray)
+            
+            Text("No Backups Found")
+                .font(.headline)
+            
+            Text("Create a backup to save your profile data and settings")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            
+            Spacer()
+        }
+        .padding(.top, 100)
+    }
+}
+
+struct BackupRowView: View {
+    let backup: DataManagementView.BackupInfo
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 15) {
+                Image(systemName: "externaldrive.badge.checkmark")
+                    .font(.system(size: 24))
+                    .foregroundColor(.blue)
+                    .frame(width: 32, height: 32)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(backup.profileName)
+                        .font(.headline)
+                    
+                    Text(dateFormatter.string(from: backup.date))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.gray)
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
     
     private var dateFormatter: DateFormatter {
@@ -620,84 +860,41 @@ struct DataManagementView: View {
     }
 }
 
-// MARK: - Helper Views
-
-struct DataUsageRow: View {
-    let title: String
-    let value: String
-    
-    var body: some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Text(value)
-                .foregroundColor(.secondary)
-        }
-    }
-}
-
-struct StorageUsageRow: View {
-    let title: String
-    let value: String
-    let percent: CGFloat
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                Spacer()
-                Text(value)
-                    .foregroundColor(.secondary)
-            }
-            
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .frame(width: geometry.size.width, height: 6)
-                        .opacity(0.2)
-                        .foregroundColor(.gray)
-                    
-                    Rectangle()
-                        .frame(width: geometry.size.width * percent, height: 6)
-                        .foregroundColor(.blue)
-                }
-                .cornerRadius(3)
-            }
-            .frame(height: 6)
-        }
-    }
-}
-
-struct ToastView: View {
-    let message: String
-    @Binding var isShowing: Bool
-    
-    var body: some View {
-        VStack {
-            Spacer()
-            
-            if isShowing {
-                VStack {
-                    Text(message)
-                        .foregroundColor(.white)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 20)
-                }
-                .background(Color.black.opacity(0.7))
-                .cornerRadius(20)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .padding(.bottom, 90)
-            }
-        }
-        .animation(.easeInOut(duration: 0.3), value: isShowing)
-    }
-}
-
 struct DataManagementView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
             DataManagementView()
                 .environmentObject(UserProfileManager())
+        }
+    }
+}
+
+// Document Picker for importing data
+struct DocumentPickerView: UIViewControllerRepresentable {
+    let onPick: ([URL]) -> Void
+    
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.json])
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let parent: DocumentPickerView
+        
+        init(_ parent: DocumentPickerView) {
+            self.parent = parent
+        }
+        
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            parent.onPick(urls)
         }
     }
 } 

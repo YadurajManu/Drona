@@ -11,6 +11,7 @@ struct ProfileView: View {
     @EnvironmentObject var userProfileManager: UserProfileManager
     @State private var showingEditProfileSheet = false
     @State private var showingLogoutAlert = false
+    @State private var showingExportSheet = false
     
     var body: some View {
         NavigationView {
@@ -49,12 +50,19 @@ struct ProfileView: View {
                             }
                         }
                         
-                        Button(action: { exportUserData() }) {
+                        Button(action: { showingExportSheet = true }) {
                             HStack {
                                 Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(.green)
+                                    .frame(width: 30)
+                                
                                 Text("Export Your Data")
+                                    .foregroundColor(.green)
+                                
+                                Spacer()
                             }
-                            .foregroundColor(.green)
+                            .padding(.vertical, 8)
                         }
                         
                         Button(action: { backupProfile() }) {
@@ -81,6 +89,10 @@ struct ProfileView: View {
                     EditProfileView(profile: profile)
                         .environmentObject(userProfileManager)
                 }
+            }
+            .sheet(isPresented: $showingExportSheet) {
+                DataExportView()
+                    .environmentObject(userProfileManager)
             }
             .alert("Sign Out", isPresented: $showingLogoutAlert) {
                 Button("Cancel", role: .cancel) { }
@@ -224,56 +236,7 @@ struct ProfileView: View {
     }
     
     private func exportUserData() {
-        guard let profile = userProfileManager.userProfile else { return }
-        
-        // Create a dictionary with user data
-        let userData: [String: Any] = [
-            "profile": [
-                "name": profile.name,
-                "age": profile.age,
-                "educationLevel": profile.educationLevel.rawValue,
-                "interests": profile.interests.map { $0.rawValue },
-                "preferredTopics": profile.preferredTopics.map { $0.rawValue },
-                "bio": profile.bio
-            ],
-            "conversations": ConversationManager.shared.conversations.map { conversation in
-                [
-                    "id": conversation.id.uuidString,
-                    "title": conversation.title,
-                    "category": conversation.category.rawValue,
-                    "lastUpdated": ISO8601DateFormatter().string(from: conversation.lastUpdated),
-                    "messages": conversation.messages.map { message in
-                        [
-                            "id": message.id.uuidString,
-                            "content": message.content,
-                            "timestamp": ISO8601DateFormatter().string(from: message.timestamp),
-                            "isFromUser": message.isFromUser
-                        ]
-                    }
-                ]
-            },
-            "exportDate": ISO8601DateFormatter().string(from: Date())
-        ]
-        
-        // Convert to JSON
-        if let jsonData = try? JSONSerialization.data(withJSONObject: userData, options: .prettyPrinted) {
-            // Create file URL in documents directory
-            let fileManager = FileManager.default
-            let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let fileName = "DronaUserData_\(profile.name)_\(Date().timeIntervalSince1970).json"
-            let fileURL = documentsDirectory.appendingPathComponent(fileName)
-            
-            // Write to file
-            do {
-                try jsonData.write(to: fileURL)
-                print("Data exported successfully to \(fileURL.path)")
-                
-                // Show share sheet (would be implemented in a real app)
-                // In a real implementation, would show UIActivityViewController to share the file
-            } catch {
-                print("Failed to export data: \(error.localizedDescription)")
-            }
-        }
+        showingExportSheet = true
     }
     
     private func backupProfile() {

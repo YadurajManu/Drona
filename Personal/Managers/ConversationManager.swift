@@ -150,6 +150,73 @@ class ConversationManager: ObservableObject {
         
         // Remove from UserDefaults
         UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        
+        // Notify observers
+        NotificationCenter.default.post(name: NSNotification.Name("ConversationsCleared"), object: nil)
+    }
+    
+    // Get total size of conversations data in bytes
+    func getTotalDataSize() -> Int {
+        guard let encoded = try? JSONEncoder().encode(conversations) else {
+            return 0
+        }
+        return encoded.count
+    }
+    
+    // Get number of messages across all conversations
+    func getTotalMessageCount() -> Int {
+        return conversations.reduce(0) { $0 + $1.messages.count }
+    }
+    
+    // Get conversation count by category
+    func getConversationCountByCategory() -> [String: Int] {
+        var counts: [String: Int] = [:]
+        
+        for conversation in conversations {
+            let category = conversation.category.rawValue
+            counts[category] = (counts[category] ?? 0) + 1
+        }
+        
+        return counts
+    }
+    
+    // Archive conversations to a file
+    func archiveConversations() -> URL? {
+        guard let encoded = try? JSONEncoder().encode(conversations) else {
+            return nil
+        }
+        
+        let fileManager = FileManager.default
+        let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let fileName = "DronaConversations_\(Date().timeIntervalSince1970).json"
+        let fileURL = documentsDirectory.appendingPathComponent(fileName)
+        
+        do {
+            try encoded.write(to: fileURL)
+            return fileURL
+        } catch {
+            print("Failed to archive conversations: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    // Import conversations from a file
+    func importConversations(from url: URL, append: Bool = false) -> Bool {
+        do {
+            let data = try Data(contentsOf: url)
+            if let decodedConversations = try? JSONDecoder().decode([Conversation].self, from: data) {
+                if append {
+                    conversations.append(contentsOf: decodedConversations)
+                } else {
+                    conversations = decodedConversations
+                }
+                saveConversations()
+                return true
+            }
+        } catch {
+            print("Failed to import conversations: \(error.localizedDescription)")
+        }
+        return false
     }
     
     // Create a singleton instance for global access

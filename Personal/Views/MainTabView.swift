@@ -42,14 +42,6 @@ struct MainTabView: View {
                 .tag(3)
         }
         .accentColor(.blue)
-        .onAppear {
-            // Start tracking user session when app launches
-            UserActivityManager.shared.startSession()
-        }
-        .onDisappear {
-            // End tracking when app closes
-            UserActivityManager.shared.endSession()
-        }
     }
 }
 
