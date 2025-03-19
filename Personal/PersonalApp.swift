@@ -13,13 +13,8 @@ struct DronaApp: App {
     
     var body: some Scene {
         WindowGroup {
-            if userProfileManager.isProfileCreated {
-                MainTabView()
-                    .environmentObject(userProfileManager)
-            } else {
-                OnboardingView()
-                    .environmentObject(userProfileManager)
-            }
+            SplashScreenView()
+                .environmentObject(userProfileManager)
         }
     }
 }
