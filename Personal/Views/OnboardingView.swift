@@ -202,68 +202,114 @@ struct OnboardingView: View {
     
     private var nameStep: some View {
         VStack(spacing: 20) {
-            TextField("", text: $name)
-                .placeholder(when: name.isEmpty) {
-                    Text("Enter your name")
-                        .foregroundColor(.gray)
-                }
-                .font(.system(size: 24, weight: .medium, design: .rounded))
-                .multilineTextAlignment(.center)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 15)
-                        .fill(Color(.systemBackground))
-                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-                )
-                .padding(.horizontal)
+            Spacer()
+            ZStack(alignment: .center) {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                    .frame(height: 60)
+                
+                TextField("", text: $name)
+                    .placeholder(when: name.isEmpty) {
+                        Text("Enter your name")
+                            .foregroundColor(.gray)
+                    }
+                    .font(.system(size: 20, weight: .medium, design: .rounded))
+                    .multilineTextAlignment(.center)
+                    .disableAutocorrection(true)
+                    .textContentType(.name)
+                    .submitLabel(.next)
+                    .padding(.horizontal)
+                    .onSubmit {
+                        if !name.isEmpty {
+                            nextStep()
+                        }
+                    }
+            }
+            .padding(.horizontal, 24)
+            
+            Spacer()
+            Spacer()
         }
     }
     
     private var ageStep: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: 40) {
             Text("\(age)")
-                .font(.system(size: 72, weight: .bold, design: .rounded))
+                .font(.system(size: 100, weight: .bold, design: .rounded))
                 .foregroundColor(.blue)
             
-            HStack(spacing: 20) {
-                Button(action: { if age > 13 { age -= 1 } }) {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundColor(.blue)
+            VStack(spacing: 20) {
+                HStack(spacing: 25) {
+                    Button(action: { if age > 13 { age -= 1 } }) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.blue)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: Color.blue.opacity(0.3), radius: 5, x: 0, y: 3)
+                            
+                            Image(systemName: "minus")
+                                .font(.system(size: 25, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .disabled(age <= 13)
+                    .opacity(age <= 13 ? 0.5 : 1)
+                    
+                    Slider(value: .init(
+                        get: { Double(age) },
+                        set: { age = Int($0) }
+                    ), in: 13...100, step: 1)
+                    .accentColor(.blue)
+                    
+                    Button(action: { if age < 100 { age += 1 } }) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.blue)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: Color.blue.opacity(0.3), radius: 5, x: 0, y: 3)
+                            
+                            Image(systemName: "plus")
+                                .font(.system(size: 25, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .disabled(age >= 100)
+                    .opacity(age >= 100 ? 0.5 : 1)
                 }
                 
-                Slider(value: .init(
-                    get: { Double(age) },
-                    set: { age = Int($0) }
-                ), in: 13...100, step: 1)
-                .accentColor(.blue)
-                
-                Button(action: { if age < 100 { age += 1 } }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 44))
-                        .foregroundColor(.blue)
-                }
+                Text("Drag the slider to adjust")
+                    .font(.system(size: 14, design: .rounded))
+                    .foregroundColor(.gray)
             }
-            .padding()
+            .padding(.horizontal, 30)
+            
+            Spacer()
         }
+        .padding(.top, 50)
     }
     
     private var educationStep: some View {
         VStack(spacing: 15) {
-            ForEach(UserProfile.EducationLevel.allCases, id: \.self) { level in
-                EducationLevelButton(
-                    level: level,
-                    isSelected: educationLevel == level,
-                    action: { educationLevel = level }
-                )
+            ScrollView {
+                VStack(spacing: 12) {
+                    ForEach(UserProfile.EducationLevel.allCases, id: \.self) { level in
+                        EducationLevelButton(
+                            level: level,
+                            isSelected: educationLevel == level,
+                            action: { educationLevel = level }
+                        )
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 40)
             }
         }
-        .padding()
     }
     
     private var interestsStep: some View {
-        VStack(spacing: 20) {
+        ScrollView {
             LazyVGrid(columns: [
                 GridItem(.flexible()),
                 GridItem(.flexible())
@@ -273,20 +319,24 @@ struct OnboardingView: View {
                         interest: interest,
                         isSelected: selectedInterests.contains(interest),
                         action: {
-                            if selectedInterests.contains(interest) {
-                                selectedInterests.remove(interest)
-                            } else {
-                                selectedInterests.insert(interest)
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                if selectedInterests.contains(interest) {
+                                    selectedInterests.remove(interest)
+                                } else {
+                                    selectedInterests.insert(interest)
+                                }
                             }
                         }
                     )
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
         }
     }
     
     private var topicsStep: some View {
-        VStack(spacing: 20) {
+        ScrollView {
             LazyVGrid(columns: [
                 GridItem(.flexible()),
                 GridItem(.flexible())
@@ -296,15 +346,19 @@ struct OnboardingView: View {
                         topic: topic,
                         isSelected: selectedTopics.contains(topic),
                         action: {
-                            if selectedTopics.contains(topic) {
-                                selectedTopics.remove(topic)
-                            } else {
-                                selectedTopics.insert(topic)
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                if selectedTopics.contains(topic) {
+                                    selectedTopics.remove(topic)
+                                } else {
+                                    selectedTopics.insert(topic)
+                                }
                             }
                         }
                     )
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
         }
     }
     
@@ -330,33 +384,45 @@ struct OnboardingView: View {
         HStack(spacing: 20) {
             if currentStep > 0 {
                 Button(action: previousStep) {
-                    HStack {
+                    HStack(spacing: 8) {
                         Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
                         Text("Back")
+                            .font(.system(size: 17, weight: .medium, design: .rounded))
                     }
                     .foregroundColor(.blue)
-                    .padding()
+                    .padding(.vertical, 15)
+                    .padding(.horizontal, 10)
                 }
+            } else {
+                Spacer()
             }
             
+            Spacer()
+            
             Button(action: nextStep) {
-                HStack {
+                HStack(spacing: 8) {
                     Text(currentStep == totalSteps - 1 ? "Get Started" : "Next")
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    
                     if currentStep < totalSteps - 1 {
                         Image(systemName: "chevron.right")
+                            .font(.system(size: 16, weight: .semibold))
                     }
                 }
                 .foregroundColor(.white)
-                .padding()
+                .padding(.vertical, 15)
+                .padding(.horizontal, 30)
                 .background(
-                    isStepValid ? Color.blue : Color.gray
+                    Capsule()
+                        .fill(isStepValid ? Color.blue : Color.gray)
                 )
-                .cornerRadius(25)
-                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                .shadow(color: isStepValid ? Color.blue.opacity(0.3) : Color.clear, radius: 5, x: 0, y: 3)
             }
             .disabled(!isStepValid)
         }
-        .padding()
+        .padding(.horizontal, 25)
+        .padding(.top, 10)
     }
     
     private var isStepValid: Bool {
@@ -465,12 +531,12 @@ struct EducationLevelButton: View {
         Button(action: action) {
             HStack {
                 Image(systemName: educationIcon(for: level))
-                    .font(.system(size: 24))
+                    .font(.system(size: 22))
                     .foregroundColor(isSelected ? .white : .blue)
                     .frame(width: 40)
                 
                 Text(level.rawValue)
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .font(.system(size: 17, weight: .medium, design: .rounded))
                     .foregroundColor(isSelected ? .white : .primary)
                 
                 Spacer()
@@ -478,12 +544,17 @@ struct EducationLevelButton: View {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .foregroundColor(.white)
+                        .font(.system(size: 16, weight: .bold))
                 }
             }
-            .padding()
-            .background(isSelected ? Color.blue : Color.blue.opacity(0.1))
-            .cornerRadius(15)
+            .padding(.vertical, 16)
+            .padding(.horizontal, 20)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? Color.blue : Color.blue.opacity(0.1))
+            )
         }
+        .buttonStyle(PlainButtonStyle())
     }
     
     private func educationIcon(for level: UserProfile.EducationLevel) -> String {
@@ -507,21 +578,25 @@ struct InterestButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 Image(systemName: interestIcon(for: interest))
                     .font(.system(size: 30))
                     .foregroundColor(isSelected ? .white : .blue)
                 
                 Text(interest.rawValue)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
                     .foregroundColor(isSelected ? .white : .primary)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
-            .padding()
-            .background(isSelected ? Color.blue : Color.blue.opacity(0.1))
-            .cornerRadius(15)
+            .frame(height: 100)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? Color.blue : Color.blue.opacity(0.1))
+            )
         }
+        .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isSelected ? 1.05 : 1.0)
     }
     
     private func interestIcon(for interest: UserProfile.Interest) -> String {
@@ -547,21 +622,31 @@ struct TopicButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 Image(systemName: topicIcon(for: topic))
                     .font(.system(size: 30))
-                    .foregroundColor(isSelected ? .white : topicColor(for: topic))
+                    .foregroundColor(.white)
                 
                 Text(topic.rawValue)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundColor(isSelected ? .white : .primary)
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .foregroundColor(.white)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
-            .padding()
-            .background(isSelected ? topicColor(for: topic) : topicColor(for: topic).opacity(0.1))
-            .cornerRadius(15)
+            .frame(height: 120)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(isSelected ? topicColor(for: topic) : topicColor(for: topic).opacity(0.7))
+            )
+            .shadow(
+                color: isSelected ? topicColor(for: topic).opacity(0.4) : Color.black.opacity(0.1),
+                radius: isSelected ? 8 : 4,
+                x: 0,
+                y: isSelected ? 4 : 2
+            )
         }
+        .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isSelected ? 1.03 : 1.0)
     }
     
     private func topicIcon(for topic: UserProfile.DoubtCategory) -> String {
@@ -608,3 +693,4 @@ struct OnboardingView_Previews: PreviewProvider {
             .environmentObject(UserProfileManager())
     }
 } 
+
