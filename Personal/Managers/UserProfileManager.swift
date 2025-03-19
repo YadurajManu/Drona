@@ -14,6 +14,9 @@ class UserProfileManager: ObservableObject {
     
     private let userDefaultsKey = "dronaUserProfile"
     
+    // Add a shared singleton instance
+    static let shared = UserProfileManager()
+    
     init() {
         loadProfile()
     }

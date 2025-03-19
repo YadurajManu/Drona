@@ -26,310 +26,288 @@ class ExportManager {
     }
     
     // Generate export data for user profile
-    func exportUserData(format: ExportFormat, content: ExportContent, completion: @escaping (URL?) -> Void) {
+    func exportUserData(format: ExportFormat, content: ExportContent, userProfileManager: UserProfileManager, completion: @escaping (URL?) -> Void) {
         switch format {
         case .pdf:
-            exportAsPDF(content: content, completion: completion)
+            exportAsPDF(content: content, userProfileManager: userProfileManager, completion: completion)
         case .json:
-            exportAsJSON(content: content, completion: completion)
+            exportAsJSON(content: content, userProfileManager: userProfileManager, completion: completion)
         case .text:
-            exportAsText(content: content, completion: completion)
+            exportAsText(content: content, userProfileManager: userProfileManager, completion: completion)
         }
     }
     
     // PDF Export
-    private func exportAsPDF(content: ExportContent, completion: @escaping (URL?) -> Void) {
-        // Create PDF document
-        let pdfDocument = PDFDocument()
+    private func exportAsPDF(content: ExportContent, userProfileManager: UserProfileManager, completion: @escaping (URL?) -> Void) {
+        // Create file URL for the PDF
+        let fileName = "Drona_Export_\(formattedDate()).pdf"
+        let fileManager = FileManager.default
+        let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let fileURL = documentsDirectory.appendingPathComponent(fileName)
         
-        // Get data based on content type
+        // Begin PDF context
+        UIGraphicsBeginPDFContextToFile(fileURL.path, CGRect.zero, nil)
+        
+        // Create pages based on content type
         switch content {
         case .profile:
-            addProfilePagesToPDF(pdfDocument)
+            if let userProfile = userProfileManager.userProfile {
+                createProfilePDFPage(userProfile: userProfile)
+            } else {
+                print("No user profile available for PDF export")
+            }
         case .conversations:
-            addConversationPagesToPDF(pdfDocument)
+            createConversationPDFPages()
         case .allData:
-            addProfilePagesToPDF(pdfDocument)
-            addConversationPagesToPDF(pdfDocument)
+            if let userProfile = userProfileManager.userProfile {
+                createProfilePDFPage(userProfile: userProfile)
+            }
+            createConversationPDFPages()
         }
         
-        // Save to file
-        let fileName = "Drona_Export_\(formattedDate()).pdf"
-        saveToFile(data: pdfDocument.dataRepresentation() ?? Data(), fileName: fileName, utType: UTType.pdf, completion: completion)
-    }
-    
-    private func addProfilePagesToPDF(_ pdfDocument: PDFDocument) {
-        guard let profile = UserProfileManager.shared.userProfile else { return }
+        // End PDF context
+        UIGraphicsEndPDFContext()
         
-        // Create PDF page
-        let pageSize = CGRect(x: 0, y: 0, width: 612, height: 792) // US Letter size
-        let renderer = UIGraphicsPDFRenderer(bounds: pageSize)
-        
-        let pdfData = renderer.pdfData { context in
-            context.beginPage()
-            
-            // Draw header
-            let headerAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 28, weight: .bold),
-                .foregroundColor: UIColor.black
-            ]
-            
-            "Drona User Profile".draw(
-                at: CGPoint(x: 50, y: 50),
-                withAttributes: headerAttributes
-            )
-            
-            "Export Date: \(formattedDate())".draw(
-                at: CGPoint(x: 50, y: 90),
-                withAttributes: [.font: UIFont.systemFont(ofSize: 14)]
-            )
-            
-            // Line separator
-            let path = UIBezierPath()
-            path.move(to: CGPoint(x: 50, y: 110))
-            path.addLine(to: CGPoint(x: 562, y: 110))
-            path.lineWidth = 1
-            UIColor.gray.setStroke()
-            path.stroke()
-            
-            // Profile data
-            let textAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 14),
-                .foregroundColor: UIColor.black
-            ]
-            
-            let titleAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 16, weight: .semibold),
-                .foregroundColor: UIColor.black
-            ]
-            
-            // Basic Info
-            "Basic Information".draw(
-                at: CGPoint(x: 50, y: 140),
-                withAttributes: titleAttributes
-            )
-            
-            "Name: \(profile.name)".draw(
-                at: CGPoint(x: 70, y: 170),
-                withAttributes: textAttributes
-            )
-            
-            "Age: \(profile.age)".draw(
-                at: CGPoint(x: 70, y: 195),
-                withAttributes: textAttributes
-            )
-            
-            "Education Level: \(profile.educationLevel.rawValue)".draw(
-                at: CGPoint(x: 70, y: 220),
-                withAttributes: textAttributes
-            )
-            
-            // Interests
-            "Interests".draw(
-                at: CGPoint(x: 50, y: 260),
-                withAttributes: titleAttributes
-            )
-            
-            for (index, interest) in profile.interests.enumerated() {
-                "• \(interest.rawValue)".draw(
-                    at: CGPoint(x: 70, y: 290 + CGFloat(index * 25)),
-                    withAttributes: textAttributes
-                )
-            }
-            
-            // Preferred Topics
-            let topicsStartY = 290 + CGFloat(profile.interests.count * 25) + 30
-            "Preferred Topics".draw(
-                at: CGPoint(x: 50, y: topicsStartY),
-                withAttributes: titleAttributes
-            )
-            
-            for (index, topic) in profile.preferredTopics.enumerated() {
-                "• \(topic.rawValue)".draw(
-                    at: CGPoint(x: 70, y: topicsStartY + 30 + CGFloat(index * 25)),
-                    withAttributes: textAttributes
-                )
-            }
-            
-            // Bio
-            let bioStartY = topicsStartY + 30 + CGFloat(profile.preferredTopics.count * 25) + 30
-            "Bio".draw(
-                at: CGPoint(x: 50, y: bioStartY),
-                withAttributes: titleAttributes
-            )
-            
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.lineBreakMode = .byWordWrapping
-            
-            let bioRect = CGRect(x: 70, y: bioStartY + 30, width: 492, height: 200)
-            let bioAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 14),
-                .foregroundColor: UIColor.black,
-                .paragraphStyle: paragraphStyle
-            ]
-            
-            (profile.bio as NSString).draw(in: bioRect, withAttributes: bioAttributes)
-            
-            // Footer
-            "Generated by Drona AI".draw(
-                at: CGPoint(x: 50, y: 700),
-                withAttributes: [.font: UIFont.systemFont(ofSize: 12, weight: .light)]
-            )
-            
-            "Page 1".draw(
-                at: CGPoint(x: 550, y: 700),
-                withAttributes: [.font: UIFont.systemFont(ofSize: 12)]
-            )
-        }
-        
-        if let pdfPage = PDFPage(image: UIImage(data: pdfData)!) {
-            pdfDocument.insert(pdfPage, at: pdfDocument.pageCount)
+        // Check if file was created
+        if fileManager.fileExists(atPath: fileURL.path) {
+            completion(fileURL)
+        } else {
+            print("Failed to create PDF file")
+            completion(nil)
         }
     }
     
-    private func addConversationPagesToPDF(_ pdfDocument: PDFDocument) {
+    private func createProfilePDFPage(userProfile: UserProfile) {
+        // Page size (US Letter)
+        let pageRect = CGRect(x: 0, y: 0, width: 612, height: 792)
+        
+        // Begin a new PDF page
+        UIGraphicsBeginPDFPageWithInfo(pageRect, nil)
+        
+        // Get current context
+        guard let context = UIGraphicsGetCurrentContext() else {
+            print("Failed to get graphics context")
+            return
+        }
+        
+        // Draw profile content
+        drawProfileContent(in: context, rect: pageRect, userProfile: userProfile)
+    }
+    
+    private func createConversationPDFPages() {
         let conversations = ConversationManager.shared.conversations
         
+        // Page size (US Letter)
+        let pageRect = CGRect(x: 0, y: 0, width: 612, height: 792)
+        
         for (index, conversation) in conversations.enumerated() {
-            // Create PDF page
-            let pageSize = CGRect(x: 0, y: 0, width: 612, height: 792) // US Letter size
-            let renderer = UIGraphicsPDFRenderer(bounds: pageSize)
+            // Begin a new PDF page
+            UIGraphicsBeginPDFPageWithInfo(pageRect, nil)
             
-            let pdfData = renderer.pdfData { context in
-                context.beginPage()
-                
-                // Draw header
-                let headerAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 22, weight: .bold),
-                    .foregroundColor: UIColor.black
-                ]
-                
-                let subHeaderAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-                    .foregroundColor: UIColor.black
-                ]
-                
-                "Drona Conversation".draw(
-                    at: CGPoint(x: 50, y: 50),
-                    withAttributes: headerAttributes
-                )
-                
-                conversation.title.draw(
-                    at: CGPoint(x: 50, y: 80),
-                    withAttributes: subHeaderAttributes
-                )
-                
-                "Category: \(conversation.category.rawValue)".draw(
-                    at: CGPoint(x: 50, y: 105),
-                    withAttributes: [.font: UIFont.systemFont(ofSize: 14)]
-                )
-                
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateStyle = .medium
-                dateFormatter.timeStyle = .short
-                
-                "Date: \(dateFormatter.string(from: conversation.lastUpdated))".draw(
-                    at: CGPoint(x: 50, y: 125),
-                    withAttributes: [.font: UIFont.systemFont(ofSize: 14)]
-                )
-                
-                // Line separator
-                let path = UIBezierPath()
-                path.move(to: CGPoint(x: 50, y: 150))
-                path.addLine(to: CGPoint(x: 562, y: 150))
-                path.lineWidth = 1
-                UIColor.gray.setStroke()
-                path.stroke()
-                
-                // Conversation messages
-                let paragraphStyle = NSMutableParagraphStyle()
-                paragraphStyle.lineBreakMode = .byWordWrapping
-                
-                var yPosition: CGFloat = 180
-                
-                for (msgIndex, message) in conversation.messages.enumerated() {
-                    let titleAttributes: [NSAttributedString.Key: Any] = [
-                        .font: UIFont.systemFont(ofSize: 14, weight: .semibold),
-                        .foregroundColor: message.isFromUser ? UIColor.blue : UIColor.purple
-                    ]
-                    
-                    let messageTime = dateFormatter.string(from: message.timestamp)
-                    let sender = message.isFromUser ? "You" : "Drona"
-                    
-                    // Determine if we need a new page
-                    if yPosition > 650 {
-                        // Add page number
-                        "Page \(index + 1)-\(msgIndex / 5 + 1)".draw(
-                            at: CGPoint(x: 530, y: 700),
-                            withAttributes: [.font: UIFont.systemFont(ofSize: 12)]
-                        )
-                        
-                        context.beginPage()
-                        yPosition = 50
-                        
-                        // Add continuation header
-                        "\(conversation.title) (continued)".draw(
-                            at: CGPoint(x: 50, y: yPosition),
-                            withAttributes: subHeaderAttributes
-                        )
-                        
-                        yPosition += 30
-                    }
-                    
-                    "\(sender) - \(messageTime)".draw(
-                        at: CGPoint(x: 50, y: yPosition),
-                        withAttributes: titleAttributes
-                    )
-                    
-                    yPosition += 25
-                    
-                    let messageRect = CGRect(x: 70, y: yPosition, width: 492, height: 200)
-                    let messageAttributes: [NSAttributedString.Key: Any] = [
-                        .font: UIFont.systemFont(ofSize: 12),
-                        .foregroundColor: UIColor.black,
-                        .paragraphStyle: paragraphStyle
-                    ]
-                    
-                    // Calculate text height
-                    let textRect = (message.content as NSString).boundingRect(
-                        with: CGSize(width: 492, height: CGFloat.greatestFiniteMagnitude),
-                        options: [.usesLineFragmentOrigin, .usesFontLeading],
-                        attributes: messageAttributes,
-                        context: nil
-                    )
-                    
-                    (message.content as NSString).draw(in: messageRect, withAttributes: messageAttributes)
-                    
-                    yPosition += textRect.height + 20
-                }
-                
-                // Footer
-                "Generated by Drona AI".draw(
-                    at: CGPoint(x: 50, y: 700),
-                    withAttributes: [.font: UIFont.systemFont(ofSize: 12, weight: .light)]
-                )
-                
-                "Page \(index + 1)".draw(
-                    at: CGPoint(x: 550, y: 700),
-                    withAttributes: [.font: UIFont.systemFont(ofSize: 12)]
-                )
+            // Get current context
+            guard let context = UIGraphicsGetCurrentContext() else {
+                print("Failed to get graphics context")
+                continue
             }
             
-            if let pdfPage = PDFPage(image: UIImage(data: pdfData)!) {
-                pdfDocument.insert(pdfPage, at: pdfDocument.pageCount)
-            }
+            // Draw conversation content
+            drawConversationContent(in: context, rect: pageRect, conversation: conversation, index: index)
         }
+    }
+    
+    private func drawConversationContent(in context: CGContext, rect: CGRect, conversation: Conversation, index: Int) {
+        // Save the graphics state
+        context.saveGState()
+        
+        // Set up text attributes
+        let headerFont = UIFont.systemFont(ofSize: 22, weight: .bold)
+        let subHeaderFont = UIFont.systemFont(ofSize: 16, weight: .medium)
+        let bodyFont = UIFont.systemFont(ofSize: 14)
+        let messageFont = UIFont.systemFont(ofSize: 12)
+        let footerFont = UIFont.systemFont(ofSize: 12, weight: .light)
+        
+        // Draw header
+        drawText(context: context, text: "Drona Conversation", point: CGPoint(x: 50, y: 50), font: headerFont)
+        drawText(context: context, text: conversation.title, point: CGPoint(x: 50, y: 80), font: subHeaderFont)
+        drawText(context: context, text: "Category: \(conversation.category.rawValue)", point: CGPoint(x: 50, y: 105), font: bodyFont)
+        
+        // Draw date
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .short
+        drawText(context: context, text: "Date: \(dateFormatter.string(from: conversation.lastUpdated))", point: CGPoint(x: 50, y: 125), font: bodyFont)
+        
+        // Line separator
+        context.setStrokeColor(UIColor.gray.cgColor)
+        context.setLineWidth(1.0)
+        context.move(to: CGPoint(x: 50, y: 150))
+        context.addLine(to: CGPoint(x: 562, y: 150))
+        context.strokePath()
+        
+        // Draw messages
+        var yPosition: CGFloat = 180
+        
+        for (msgIndex, message) in conversation.messages.enumerated() {
+            // Check if we need a new page
+            if yPosition > 650 {
+                // Draw footer on current page
+                drawText(context: context, text: "Page \(index + 1)-\(msgIndex / 5 + 1)", point: CGPoint(x: 550, y: 700), font: footerFont)
+                
+                // Start a new page
+                UIGraphicsBeginPDFPageWithInfo(rect, nil)
+                guard let newContext = UIGraphicsGetCurrentContext() else { continue }
+                
+                // Reset position
+                yPosition = 50
+                
+                // Add continuation header
+                drawText(context: newContext, text: "\(conversation.title) (continued)", point: CGPoint(x: 50, y: yPosition), font: subHeaderFont)
+                yPosition += 30
+            }
+            
+            // Draw message sender and time
+            let messageTime = dateFormatter.string(from: message.timestamp)
+            let sender = message.isFromUser ? "You" : "Drona"
+            let senderColor = message.isFromUser ? UIColor.blue : UIColor.purple
+            
+            let senderAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 14, weight: .semibold),
+                .foregroundColor: senderColor
+            ]
+            
+            let senderString = NSAttributedString(string: "\(sender) - \(messageTime)", attributes: senderAttributes)
+            
+            // Flip the context coordinates for text drawing
+            context.saveGState()
+            context.translateBy(x: 0, y: 792) // Height of the page
+            context.scaleBy(x: 1.0, y: -1.0)
+            
+            let senderRect = CGRect(x: 50, y: 792 - yPosition, width: 500, height: 20)
+            senderString.draw(in: senderRect)
+            
+            context.restoreGState()
+            
+            yPosition += 25
+            
+            // Draw message content
+            let messageAttributes: [NSAttributedString.Key: Any] = [
+                .font: messageFont,
+                .foregroundColor: UIColor.black
+            ]
+            
+            let messageString = NSAttributedString(string: message.content, attributes: messageAttributes)
+            
+            context.saveGState()
+            context.translateBy(x: 0, y: 792)
+            context.scaleBy(x: 1.0, y: -1.0)
+            
+            let messageRect = CGRect(x: 70, y: 792 - yPosition, width: 492, height: 200)
+            messageString.draw(in: messageRect)
+            
+            context.restoreGState()
+            
+            // Approximate text height - this is simplified
+            let approxHeight = min(CGFloat(message.content.count) / 3, 150)
+            yPosition += approxHeight + 20
+        }
+        
+        // Footer
+        drawText(context: context, text: "Generated by Drona AI", point: CGPoint(x: 50, y: 700), font: footerFont)
+        drawText(context: context, text: "Page \(index + 1)", point: CGPoint(x: 550, y: 700), font: footerFont)
+        
+        // Restore the graphics state
+        context.restoreGState()
+    }
+    
+    private func drawProfileContent(in context: CGContext, rect: CGRect, userProfile: UserProfile) {
+        // Save the graphics state
+        context.saveGState()
+        
+        // Set up text attributes
+        let headerFont = UIFont.systemFont(ofSize: 28, weight: .bold)
+        let titleFont = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        let bodyFont = UIFont.systemFont(ofSize: 14)
+        let footerFont = UIFont.systemFont(ofSize: 12, weight: .light)
+        
+        // Draw header
+        drawText(context: context, text: "Drona User Profile", point: CGPoint(x: 50, y: 50), font: headerFont)
+        
+        // Draw export date
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMM d, yyyy"
+        drawText(context: context, text: "Export Date: \(dateFormatter.string(from: Date()))", point: CGPoint(x: 50, y: 90), font: bodyFont)
+        
+        // Draw line separator
+        context.setStrokeColor(UIColor.gray.cgColor)
+        context.setLineWidth(1.0)
+        context.move(to: CGPoint(x: 50, y: 110))
+        context.addLine(to: CGPoint(x: 562, y: 110))
+        context.strokePath()
+        
+        // Draw profile sections
+        // Basic Info
+        drawText(context: context, text: "Basic Information", point: CGPoint(x: 50, y: 140), font: titleFont)
+        drawText(context: context, text: "Name: \(userProfile.name)", point: CGPoint(x: 70, y: 170), font: bodyFont)
+        drawText(context: context, text: "Age: \(userProfile.age)", point: CGPoint(x: 70, y: 195), font: bodyFont)
+        drawText(context: context, text: "Education Level: \(userProfile.educationLevel.rawValue)", point: CGPoint(x: 70, y: 220), font: bodyFont)
+        
+        // Interests
+        drawText(context: context, text: "Interests", point: CGPoint(x: 50, y: 260), font: titleFont)
+        for (index, interest) in userProfile.interests.enumerated() {
+            drawText(context: context, text: "• \(interest.rawValue)", point: CGPoint(x: 70, y: 290 + CGFloat(index * 25)), font: bodyFont)
+        }
+        
+        // Preferred Topics
+        let topicsStartY = 290 + CGFloat(userProfile.interests.count * 25) + 30
+        drawText(context: context, text: "Preferred Topics", point: CGPoint(x: 50, y: topicsStartY), font: titleFont)
+        for (index, topic) in userProfile.preferredTopics.enumerated() {
+            drawText(context: context, text: "• \(topic.rawValue)", point: CGPoint(x: 70, y: topicsStartY + 30 + CGFloat(index * 25)), font: bodyFont)
+        }
+        
+        // Bio
+        let bioStartY = topicsStartY + 30 + CGFloat(userProfile.preferredTopics.count * 25) + 30
+        drawText(context: context, text: "Bio", point: CGPoint(x: 50, y: bioStartY), font: titleFont)
+        
+        // For multiline text, we need a more complex approach
+        // This is simplified for now
+        drawText(context: context, text: userProfile.bio, point: CGPoint(x: 70, y: bioStartY + 30), font: bodyFont)
+        
+        // Footer
+        drawText(context: context, text: "Generated by Drona AI", point: CGPoint(x: 50, y: 700), font: footerFont)
+        drawText(context: context, text: "Page 1", point: CGPoint(x: 550, y: 700), font: footerFont)
+        
+        // Restore the graphics state
+        context.restoreGState()
+    }
+    
+    private func drawText(context: CGContext, text: String, point: CGPoint, font: UIFont) {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: UIColor.black
+        ]
+        
+        let string = NSAttributedString(string: text, attributes: attributes)
+        
+        // Flip the context coordinates for text drawing
+        context.saveGState()
+        context.translateBy(x: 0, y: 792) // Height of the page
+        context.scaleBy(x: 1.0, y: -1.0)
+        
+        let textRect = CGRect(x: point.x, y: 792 - point.y, width: 500, height: 100)
+        string.draw(in: textRect)
+        
+        context.restoreGState()
     }
     
     // JSON Export
-    private func exportAsJSON(content: ExportContent, completion: @escaping (URL?) -> Void) {
+    private func exportAsJSON(content: ExportContent, userProfileManager: UserProfileManager, completion: @escaping (URL?) -> Void) {
         var jsonData: [String: Any] = [
             "exportDate": formattedDate()
         ]
         
         switch content {
         case .profile:
-            if let profile = UserProfileManager.shared.userProfile {
+            if let profile = userProfileManager.userProfile {
                 jsonData["profile"] = [
                     "name": profile.name,
                     "age": profile.age,
@@ -357,7 +335,7 @@ class ExportManager {
                 ]
             }
         case .allData:
-            if let profile = UserProfileManager.shared.userProfile {
+            if let profile = userProfileManager.userProfile {
                 jsonData["profile"] = [
                     "name": profile.name,
                     "age": profile.age,
@@ -407,14 +385,14 @@ class ExportManager {
     }
     
     // Text Export
-    private func exportAsText(content: ExportContent, completion: @escaping (URL?) -> Void) {
+    private func exportAsText(content: ExportContent, userProfileManager: UserProfileManager, completion: @escaping (URL?) -> Void) {
         var textContent = "DRONA DATA EXPORT\n"
         textContent += "Date: \(formattedDate())\n"
         textContent += "======================================\n\n"
         
         switch content {
         case .profile:
-            if let profile = UserProfileManager.shared.userProfile {
+            if let profile = userProfileManager.userProfile {
                 textContent += "USER PROFILE\n"
                 textContent += "======================================\n"
                 textContent += "Name: \(profile.name)\n"
@@ -461,7 +439,7 @@ class ExportManager {
             }
         case .allData:
             // Include profile data
-            if let profile = UserProfileManager.shared.userProfile {
+            if let profile = userProfileManager.userProfile {
                 textContent += "USER PROFILE\n"
                 textContent += "======================================\n"
                 textContent += "Name: \(profile.name)\n"

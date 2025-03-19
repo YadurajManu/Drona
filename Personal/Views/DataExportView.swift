@@ -318,7 +318,7 @@ struct DataExportView: View {
         case .allData: exportContent = .allData
         }
         
-        ExportManager.shared.exportUserData(format: exportFormat, content: exportContent) { url in
+        ExportManager.shared.exportUserData(format: exportFormat, content: exportContent, userProfileManager: userProfileManager) { url in
             DispatchQueue.main.async {
                 isExporting = false
                 
