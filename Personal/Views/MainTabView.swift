@@ -28,10 +28,9 @@ struct MainTabView: View {
                 }
                 .tag(1)
             
-            NewQuestionView()
-                .environmentObject(conversationManager)
+            StudyCoachView()
                 .tabItem {
-                    Label("New Question", systemImage: "plus.circle.fill")
+                    Label("Coach", systemImage: "person.fill.checkmark")
                 }
                 .tag(2)
             
@@ -41,11 +40,18 @@ struct MainTabView: View {
                 }
                 .tag(3)
             
+            NewQuestionView()
+                .environmentObject(conversationManager)
+                .tabItem {
+                    Label("New Question", systemImage: "plus.circle.fill")
+                }
+                .tag(4)
+            
             ProfileView()
                 .tabItem {
                     Label("Profile", systemImage: "person.fill")
                 }
-                .tag(4)
+                .tag(5)
         }
         .accentColor(.blue)
     }
@@ -174,7 +180,30 @@ struct HomeView: View {
                 .padding(.top)
             
             VStack(spacing: 12) {
-                ForEach(UserProfile.DoubtCategory.allCases.prefix(4), id: \.self) { category in
+                NavigationLink(destination: StudyCoachView()) {
+                    HStack {
+                        Image(systemName: "person.fill.checkmark")
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.indigo)
+                            .cornerRadius(8)
+                        
+                        Text("Study Coach")
+                            .font(.system(size: 17, weight: .medium))
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                ForEach(UserProfile.DoubtCategory.allCases.prefix(3), id: \.self) { category in
                     NavigationLink(destination: NewQuestionView(preselectedCategory: category)
                         .environmentObject(conversationManager)) {
                         HStack {
