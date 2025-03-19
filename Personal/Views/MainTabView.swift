@@ -35,11 +35,17 @@ struct MainTabView: View {
                 }
                 .tag(2)
             
+            FlashcardsHomeView()
+                .tabItem {
+                    Label("Flashcards", systemImage: "rectangle.stack.fill")
+                }
+                .tag(3)
+            
             ProfileView()
                 .tabItem {
                     Label("Profile", systemImage: "person.fill")
                 }
-                .tag(3)
+                .tag(4)
         }
         .accentColor(.blue)
     }
@@ -48,12 +54,15 @@ struct MainTabView: View {
 struct HomeView: View {
     @EnvironmentObject var conversationManager: ConversationManager
     @EnvironmentObject var userProfileManager: UserProfileManager
+    @State private var navigateToFlashcards = false
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     welcomeSection
+                    
+                    flashcardsSection
                     
                     recentConversationsSection
                     
@@ -77,6 +86,50 @@ struct HomeView: View {
                     .font(.title3)
                     .foregroundColor(.secondary)
             }
+        }
+    }
+    
+    private var flashcardsSection: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            Text("Flashcards")
+                .font(.headline)
+                .padding(.top)
+            
+            Button(action: { navigateToFlashcards = true }) {
+                HStack {
+                    Image(systemName: "rectangle.stack.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                        .frame(width: 50, height: 50)
+                        .background(Color.orange)
+                        .cornerRadius(12)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Review Your Flashcards")
+                            .font(.system(size: 17, weight: .semibold))
+                        
+                        Text("Study with spaced repetition")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(Color(.systemBackground))
+                .cornerRadius(12)
+                .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .background(
+                NavigationLink(
+                    destination: FlashcardsHomeView(),
+                    isActive: $navigateToFlashcards
+                ) { EmptyView() }
+            )
         }
     }
     
@@ -146,6 +199,29 @@ struct HomeView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
+                
+                NavigationLink(destination: CreateFlashcardView()) {
+                    HStack {
+                        Image(systemName: "plus.rectangle.fill")
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.purple)
+                            .cornerRadius(8)
+                        
+                        Text("Create Flashcard")
+                            .font(.system(size: 17, weight: .medium))
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                }
+                .buttonStyle(PlainButtonStyle())
             }
         }
     }

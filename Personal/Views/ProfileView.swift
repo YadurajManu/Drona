@@ -36,6 +36,14 @@ struct ProfileView: View {
                             .foregroundColor(.blue)
                         }
                         
+                        NavigationLink(destination: FlashcardsHomeView()) {
+                            HStack {
+                                Image(systemName: "rectangle.stack.fill")
+                                Text("My Flashcards")
+                            }
+                            .foregroundColor(.orange)
+                        }
+                        
                         NavigationLink(destination: DronaSettingsView()) {
                             HStack {
                                 Image(systemName: "gearshape.fill")
