@@ -16,6 +16,7 @@ struct StudyCoachView: View {
     @State private var showInsightsView = false
     @State private var showPlansView = false
     @FocusState private var isTextFieldFocused: Bool
+    @State private var selectedInteraction: StudyCoach.CoachInteraction? = nil
     
     private let suggestedTopics = [
         "Study technique advice",
@@ -215,6 +216,7 @@ struct StudyCoachView: View {
     // Extract message list to its own view
     private struct MessageListContent: View {
         let interaction: StudyCoach.CoachInteraction
+        
         let isGenerating: Bool
         let coach: StudyCoach?
         
